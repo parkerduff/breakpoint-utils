@@ -147,6 +147,8 @@ function MyComponent() {
 }
 ```
 
+> **SSR Note:** In server-side rendering environments (e.g., Next.js), the initial width is `0` until hydration completes. Components should handle this gracefully.
+
 ## Direct Viewport Access
 
 ```typescript

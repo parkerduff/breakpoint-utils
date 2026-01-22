@@ -1,19 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import viewport from './viewport';
 
+const subscribe = (callback: () => void) => viewport.onResize(callback);
+const getSnapshot = () => viewport.getWidth();
+const getServerSnapshot = () => 0;
+
 const useViewport = () => {
-  const [width, setWidth] = useState(viewport.getWidth());
-
-  useEffect(() => {
-    const handler = () => setWidth(viewport.getWidth());
-    const removeHandler = viewport.onResize(handler);
-
-    return () => {
-      removeHandler();
-    };
-  }, []);
-
-  return width;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 };
 
 export default useViewport;
