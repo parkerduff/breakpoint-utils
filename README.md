@@ -11,62 +11,38 @@ npm install breakpoint-utils
 ## Features
 
 - **Configurable breakpoints** - Use defaults or define your own
-- **Responsive utilities** - `up`, `down`, `only`, `not`, `between`
-- **React hook** - `useViewport` for reactive viewport width
+- **Imperative API** - `up`, `down`, `only`, `not`, `between` for use anywhere
+- **React hooks** - `useUp`, `useDown`, `useOnly`, `useNot`, `useBetween` for reactive components
+- **Viewport measurements** - `useViewport` for pixel-based calculations
+- **CSS parity** - Uses `matchMedia` for exact CSS behavior
 - **Lightweight** - Minimal dependencies
 - **TypeScript** - Full type safety
 
-## Quick Start
+## Default Breakpoints
 
-### Default Breakpoints
+| Name | Min Width |
+|------|-----------|
+| `xs` | 480px |
+| `sm` | 640px |
+| `md` | 768px |
+| `lg` | 1024px |
+| `xl` | 1280px |
+| `2xl` | 1536px |
 
-```typescript
-import { up, down, only } from 'breakpoint-utils';
+## Configuration
 
-// Default breakpoints: xs: 480, sm: 640, md: 768, lg: 1024, xl: 1280, 2xl: 1536
+### `configure(breakpoints)`
 
-if (up('md')) {
-  // viewport >= 768px
-}
-
-if (down('lg')) {
-  // viewport < 1024px
-}
-
-if (only('sm')) {
-  // 640px <= viewport < 768px
-}
-```
-
-### Custom Breakpoints
+Replace the default breakpoints with your own. Must be called before any components mount.
 
 ```typescript
-import { configure, up, down } from 'breakpoint-utils';
+import { configure } from 'breakpoint-utils';
 
-// Define your own breakpoints
 configure({
   mobile: 320,
   tablet: 768,
   desktop: 1024,
   wide: 1440,
-});
-
-if (up('tablet')) {
-  // viewport >= 768px
-}
-```
-
-## API
-
-### `configure(breakpoints)`
-
-Set custom breakpoints. Must be called before using utility functions.
-
-```typescript
-configure({
-  small: 600,
-  medium: 900,
-  large: 1200,
 });
 ```
 
@@ -79,20 +55,28 @@ const breakpoints = getBreakpoints();
 // { xs: 480, sm: 640, ... } or your custom config
 ```
 
+## Imperative API
+
+Use these in event handlers, utility functions, or anywhere outside of React rendering.
+
+All functions accept a named breakpoint string. `up`, `down`, and `between` also accept a number for ad-hoc pixel values.
+
 ### `up(size)`
 
 Returns `true` if viewport width is >= the breakpoint.
 
 ```typescript
-up('md') // viewport >= 768px
+up('md')  // viewport >= 768px
+up(900)   // viewport >= 900px
 ```
 
 ### `down(size)`
 
-Returns `true` if viewport width is < the breakpoint.
+Returns `true` if viewport is **below** the breakpoint (does not include it).
 
 ```typescript
 down('lg') // viewport < 1024px
+down(900)  // viewport < 900px
 ```
 
 ### `only(size)`
@@ -116,52 +100,115 @@ not('md') // viewport < 768px OR viewport >= 1024px
 Returns `true` if viewport is between two breakpoints.
 
 ```typescript
-between('sm', 'lg') // 640px <= viewport < 1024px
+between('sm', 'lg')  // 640px <= viewport < 1024px
+between(600, 900)    // 600px <= viewport < 900px
+between('sm', 900)   // mix named + numeric
 ```
 
-## React Hook
+> **Note:** These functions return a one-shot result at call time. In React, use the hooks below for reactive updates. Outside React, you can pair with the `viewport` singleton to re-check on viewport changes:
+>
+> ```typescript
+> import { up, viewport } from 'breakpoint-utils';
+>
+> // viewport exposes getWidth() and onResize() for manual subscription
+> const unsubscribe = viewport.onResize(() => {
+>   console.log('Is desktop:', up('lg'));
+> });
+>
+> // Clean up when no longer needed
+> unsubscribe();
+> ```
+
+## React Hooks
+
+Each hook mirrors its imperative counterpart but reactively re-renders the component when the result changes. Like the imperative API, `useUp`, `useDown`, and `useBetween` accept numbers as well as named breakpoints.
+
+### `useUp(size)`
+
+Returns `true` if viewport width is >= the breakpoint.
+
+```typescript
+const isDesktop = useUp('lg');  // viewport >= 1024px
+const isWide = useUp(900);      // viewport >= 900px
+```
+
+### `useDown(size)`
+
+Returns `true` if viewport is **below** the breakpoint (does not include it).
+
+```typescript
+const isMobile = useDown('md'); // viewport < 768px
+const isNarrow = useDown(600);  // viewport < 600px
+```
+
+### `useOnly(size)`
+
+Returns `true` if viewport is within the breakpoint range.
+
+```typescript
+const isTabletOnly = useOnly('md'); // 768px <= viewport < 1024px
+```
+
+### `useNot(size)`
+
+Returns `true` if viewport is outside the breakpoint range.
+
+```typescript
+const isNotTablet = useNot('md'); // viewport < 768px OR viewport >= 1024px
+```
+
+### `useBetween(minSize, maxSize)`
+
+Returns `true` if viewport is between two breakpoints.
+
+```typescript
+const isSmallToMedium = useBetween('sm', 'lg'); // 640px <= viewport < 1024px
+const isCustomRange = useBetween(600, 900);     // 600px <= viewport < 900px
+```
+
+> **SSR Note:** All hooks return `false` during server-side rendering until hydration completes.
 
 ### `useViewport()`
 
-React hook that returns the current viewport width and updates on resize.
+Returns the current viewport width in pixels. Use for pixel-based calculations (drag/resize logic, canvas, charts, virtualization):
 
 ```typescript
-import { useViewport, configure, up } from 'breakpoint-utils';
+import { useViewport } from 'breakpoint-utils';
 
-// Optional: configure custom breakpoints
-configure({
-  mobile: 375,
-  tablet: 768,
-  desktop: 1024,
-});
-
-function MyComponent() {
+function ResizablePanel() {
   const width = useViewport();
-  
-  return (
-    <div>
-      <p>Viewport width: {width}px</p>
-      {up('tablet') && <p>Tablet or larger</p>}
-    </div>
-  );
+  const panelWidth = Math.min(width * 0.8, 600);
+
+  return <div style={{ width: panelWidth }} />;
 }
 ```
 
-> **SSR Note:** In server-side rendering environments (e.g., Next.js), the initial width is `0` until hydration completes. Components should handle this gracefully.
+> **Note:** Use breakpoint hooks (`useUp`, etc.) for responsive layouts. Use `useViewport` only when you need actual pixel values for calculations.
 
-## Direct Viewport Access
+## Migrating from v1.0.0
+
+In v1.0.0, reactive breakpoint checks required `useViewport()` to trigger re-renders:
 
 ```typescript
-import { viewport } from 'breakpoint-utils';
+import { useViewport, up } from 'breakpoint-utils';
 
-const width = viewport.getWidth();
+function MyComponent() {
+  useViewport(); // re-renders on every pixel change
+  const isDesktop = up('lg');
+  return isDesktop ? <DesktopNav /> : <MobileNav />;
+}
+```
 
-const unsubscribe = viewport.onResize(() => {
-  console.log('Viewport resized:', viewport.getWidth());
-});
+This still works, but the dedicated hooks are preferred — they only re-render when a breakpoint boundary is crossed:
 
-// Clean up
-unsubscribe();
+```typescript
+// v2.0.0+ — dedicated hooks
+import { useUp } from 'breakpoint-utils';
+
+function MyComponent() {
+  const isDesktop = useUp('lg'); // re-renders only at 1024px boundary
+  return isDesktop ? <DesktopNav /> : <MobileNav />;
+}
 ```
 
 ## TypeScript

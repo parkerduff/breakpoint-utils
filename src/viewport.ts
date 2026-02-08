@@ -1,10 +1,10 @@
 class ViewportHelper {
   private width: number;
-  private eventHandlers: (() => void)[];
+  private eventHandlers: Set<() => void>;
 
   constructor() {
     this.width = typeof window !== 'undefined' ? window.innerWidth : 0;
-    this.eventHandlers = [];
+    this.eventHandlers = new Set();
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', this.handleResize);
     }
@@ -20,9 +20,9 @@ class ViewportHelper {
   }
 
   onResize(handler: () => void) {
-    this.eventHandlers.push(handler);
+    this.eventHandlers.add(handler);
     return () => {
-      this.eventHandlers = this.eventHandlers.filter(h => h !== handler);
+      this.eventHandlers.delete(handler);
     };
   }
 }
